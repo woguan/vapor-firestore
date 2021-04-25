@@ -1,7 +1,7 @@
 import Foundation
 
 
-struct FirestoreErrorResponse: Codable {
+struct FirestoreErrorResponse: Error, Codable {
     struct FirestoreErrorResponseBody: Codable {
         let code: Int
         let message: String

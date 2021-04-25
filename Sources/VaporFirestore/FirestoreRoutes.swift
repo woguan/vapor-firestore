@@ -7,65 +7,62 @@
 
 import Vapor
 
-public struct FirestoreRoutes {
-    private let request: FirestoreRequest
+public struct FirestoreResource {
+    private weak var app: Application!
+    private var client: FirestoreClient
 
-    init(request: FirestoreRequest) {
-        self.request = request
+    init(app: Application) {
+        self.app = app
+        self.client = FirestoreAPIClient(app: app)
     }
 
-    public func test(req: Request) throws -> Future<String> {
-        let sendReq: Future<String> = try self.request.getToken()
-        return sendReq
+    public func getDocument<T: Decodable>(path: String) -> EventLoopFuture<Firestore.Document<T>> {
+        return client.send(method: .GET, path: path, query: "", body: ByteBuffer(), headers: [:])
     }
 
-    public func getDocument<T: Decodable>(path: String, on req: Request) throws -> Future<Firestore.Document<T>> {
-        let sendReq: Future<Firestore.Document<T>> = try self.request.send(
+    public func listDocuments<T: Decodable>(path: String) -> EventLoopFuture<[Firestore.Document<T>]> {
+        let sendReq: EventLoopFuture<Firestore.List.Response<T>> = client.send(
             method: .GET,
             path: path,
             query: "",
-            body: .empty,
+            body: ByteBuffer(),
             headers: [:])
-        return sendReq
+        return sendReq.map { $0.documents }
     }
 
-    public func listDocuments<T: Decodable>(path: String, on req: Request) throws -> Future<[Firestore.Document<T>]> {
-        let sendReq: Future<Firestore.List.Response<T>> = try self.request.send(
-            method: .GET,
-            path: path,
-            query: "",
-            body: .empty,
-            headers: [:])
-        return sendReq.map(to: [Firestore.Document<T>].self) { response in
-            return response.documents
+    public func createDocument<T: Codable>(path: String, name: String? = nil, fields: T) -> EventLoopFuture<Firestore.Document<T>> {
+        var query = ""
+        if let safeName = name {
+            query += "documentId=\(safeName)"
+        }
+        return app.client.eventLoop.tryFuture { () -> ByteBuffer in
+            return try JSONEncoder.firestore.encode(["fields": fields]).convertToHTTPBody()
+        }.flatMap { requestBody -> EventLoopFuture<Firestore.Document<T>> in
+            return client.send(
+                method: .POST,
+                path: path,
+                query: query,
+                body: requestBody,
+                headers: [:])
         }
     }
 
-    public func createDocument<T: Codable>(path: String, fields: T, on req: Request) throws -> Future<Firestore.Document<T>> {
-        let requestBody = try JSONEncoder.firestore.encode(["fields": fields]).convertToHTTPBody()
-        let sendReq: Future<Firestore.Document<T>> = try self.request.send(
-            method: .POST,
-            path: path,
-            query: "",
-            body: requestBody,
-            headers: [:])
-        return sendReq
-    }
-
-    public func updateDocument<T: Codable>(path: String, fields: T, updateMask: [String]?, on req: Request) throws -> Future<Firestore.Document<T>> {
+    public func updateDocument<T: Codable>(path: String, fields: T, updateMask: [String]?) -> EventLoopFuture<Firestore.Document<T>> {
         var queryParams = ""
         if let updateMask = updateMask {
             queryParams = updateMask.map({ "updateMask.fieldPaths=\($0)" }).joined(separator: "&")
         }
 
-        let requestBody = try JSONEncoder.firestore.encode(["fields": fields]).convertToHTTPBody()
-        let sendReq: Future<Firestore.Document<T>> = try self.request.send(
-            method: .PATCH,
-            path: path,
-            query: queryParams,
-            body: requestBody,
-            headers: [:])
-        return sendReq
+        return app.client.eventLoop.tryFuture { () -> ByteBuffer in
+            return try JSONEncoder.firestore.encode(["fields": fields]).convertToHTTPBody()
+        }.flatMap { requestBody -> EventLoopFuture<Firestore.Document<T>> in
+            return client.send(
+                method: .PATCH,
+                path: path,
+                query: queryParams,
+                body: requestBody,
+                headers: [:])
+        }
     }
 
 }

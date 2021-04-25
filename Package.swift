@@ -1,8 +1,11 @@
-// swift-tools-version:4.0
+// swift-tools-version:5.2
 import PackageDescription
 
 let package = Package(
-    name: "VaporFirestore",
+    name: "vapor-firestore",
+    platforms: [
+        .macOS(.v10_15)
+    ],
     products: [
         .library(name: "VaporFirestore", targets: ["VaporFirestore"]),
     ],
@@ -13,8 +16,14 @@ let package = Package(
         .package(url: "https://github.com/Quick/Nimble.git", from: "8.0.0")
     ],
     targets: [
-        .target(name: "VaporFirestore", dependencies: ["Vapor", "JWT"]),
-        .testTarget(name: "VaporFirestoreTests", dependencies: ["VaporFirestore", "Nimble"])
+        .target(name: "VaporFirestore", dependencies: [
+            .product(name: "Vapor", package: "vapor"),
+            .product(name: "JWT", package: "jwt"),
+        ]),
+        .testTarget(name: "VaporFirestoreTests", dependencies: [
+            .target(name: "VaporFirestore"),
+            .product(name: "Nimble", package: "Nimble"),
+        ])
     ]
 )
 

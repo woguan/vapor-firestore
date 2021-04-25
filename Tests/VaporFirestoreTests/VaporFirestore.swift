@@ -1,42 +1,28 @@
 import Vapor
-import VaporFirestore
+@testable import VaporFirestore
 import XCTest
 import Nimble
 
-struct TestFields: Codable {
-    var title: Firestore.StringValue
-    var subTitle: Firestore.StringValue
-}
-
-struct TestUpdateFields: Codable {
-    var title: Firestore.StringValue
-}
 
 
 final class VaporFirestoreTests: XCTestCase {
-
     var app: Application!
-
-    static let allTests = [
-        ("testAuthToken", testAuthToken,
-         "testCreatDoc", testCreateDoc,
-         "testUpdateDoc", testUpdateDoc,
-         "testListDocs", testListDocs,
-         "testGetDoc", testGetDoc)
-    ]
 
     override func setUp() {
         super.setUp()
-        self.app = CreateApp.makeApp()
+        self.app = Application(.testing)
+        self.app.storage[FirestoreConfig.FirestoreConfigKey.self] = FirestoreConfig(
+            projectId: Environment.get("FS_PRJ_KEY")!,
+            email: Environment.get("FS_EMAIL_KEY")!,
+            privateKey: Environment.get("FS_PRIVKEY_KEY")!
+        )
     }
 
     func testAuthToken() throws {
         do {
-            let client = try self.app.make(FirestoreClient.self)
-            let request = Request(using: self.app)
-
-            let result = try client.firestore.test(req: request).wait()
-
+            let apiClient = FirestoreAPIClient(app: app)
+            let result = try apiClient.getToken().wait()
+            
             expect(result).toNot(beEmpty())
         } catch {
             XCTFail(error.localizedDescription)
@@ -45,11 +31,10 @@ final class VaporFirestoreTests: XCTestCase {
 
     func testCreateDoc() throws {
         do {
-            let client = try self.app.make(FirestoreClient.self)
-            let request = Request(using: self.app)
-            let testObject = TestFields(title: Firestore.StringValue("A title"), subTitle: Firestore.StringValue("A subtitle"))
+            let client = app.firestoreService.firestore
+            let testObject = TestFields(title: "A title", subTitle: "A subtitle")
 
-            let result = try client.firestore.createDocument(path: "test", fields: testObject, on: request).wait()
+            let result = try client.createDocument(path: "test", fields: testObject).wait()
             expect(result).toNot(beNil())
 
             print("Test object-id: \( (result.name as NSString).lastPathComponent)")
@@ -57,13 +42,72 @@ final class VaporFirestoreTests: XCTestCase {
             XCTFail(error.localizedDescription)
         }
     }
+    
+    func testGeoCreate() throws {
+        do {
+            let client = app.firestoreService.firestore
+            let testObject = GeoFieldTest(somegeoPoint: Firestore.GeoPoint(latitude: 15.03, longitude: 15.03))
+            let result = try client.createDocument(path: "test", fields: testObject).wait()
+            expect(result).toNot(beNil())
+
+            print("Test object-id: \( (result.name as NSString).lastPathComponent)")
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testGeoRead() throws {
+        do {
+            var objectId = "<object-id>"
+            objectId = "uIrxY3fapSXfiIELVKSd" // uncomment this string a and set it to some real id from testDatabbase
+            let client = app.firestoreService.firestore
+
+            let result: Firestore.Document<GeoFieldTest> = try client.getDocument(path: "test/\(objectId)").wait()
+
+            expect(result).toNot(beNil())
+            expect(result.fields?.somegeoPoint.latitude).toNot(beNil())
+            expect(result.fields?.somegeoPoint.longitude).toNot(beNil())
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testNullableCreate() throws {
+        do {
+            let client = app.firestoreService.firestore
+            let testObject = NullValueTest(title: nil, number: 120)
+            let result = try client.createDocument(path: "test", fields: testObject).wait()
+            expect(result).toNot(beNil())
+
+            print("Test object-id: \( (result.name as NSString).lastPathComponent)")
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testNullRead() throws {
+        do {
+            var objectId = "<object-id>"
+            objectId = "bGxv5lBmZrlWZQWyyGS6" // uncomment this string a and set it to some real id from testDatabbase
+            let client = app.firestoreService.firestore
+
+            let result: Firestore.Document<NullValueTest> = try client.getDocument(path: "test/\(objectId)").wait()
+
+            expect(result).toNot(beNil())
+            expect(result.fields?.title).to(beNil())
+            expect(result.fields?.number).toNot(beNil())
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
 
     func testUpdateDoc() throws {
         do {
-            let client = try self.app.make(FirestoreClient.self)
-            let request = Request(using: self.app)
-            let testObject = TestUpdateFields(title: Firestore.StringValue("An updated title again"))
-            let result = try client.firestore.updateDocument(path: "test/<object-id>", fields: testObject, updateMask: ["title"], on: request).wait()
+            var objectId = "<object-id>"
+            objectId = "oomlgfl9uWovPVKikBFB" // uncomment this string a and set it to some real id from testDatabbase
+            let client = app.firestoreService.firestore
+            let testObject = TestFields(title: "An updated title again", subTitle: "expecting to ignore this text")
+            let result = try client.updateDocument(path: "test/\(objectId)", fields: testObject, updateMask: ["title"]).wait()
 
             expect(result).toNot(beNil())
         } catch {
@@ -73,10 +117,8 @@ final class VaporFirestoreTests: XCTestCase {
 
     func testListDocs() throws {
         do {
-            let client = try self.app.make(FirestoreClient.self)
-            let request = Request(using: self.app)
-
-            let result: [Firestore.Document<TestFields>] = try client.firestore.listDocuments(path: "test", on: request).wait()
+            let client = app.firestoreService.firestore
+            let result: [Firestore.Document<TestFields>] = try client.listDocuments(path: "test").wait()
 
             expect(result).toNot(beNil())
             expect(result[0].fields?.title).toNot(beNil())
@@ -88,14 +130,67 @@ final class VaporFirestoreTests: XCTestCase {
 
     func testGetDoc() throws {
         do {
-            let client = try self.app.make(FirestoreClient.self)
-            let request = Request(using: self.app)
+            var objectId = "<object-id>"
+            objectId = "oomlgfl9uWovPVKikBFB" // uncomment this string a and set it to some real id from testDatabbase
+            let client = app.firestoreService.firestore
 
-            let result: Firestore.Document<TestFields> = try client.firestore.getDocument(path: "test/<object-id>", on: request).wait()
+            let result: Firestore.Document<TestFields> = try client.getDocument(path: "test/\(objectId)").wait()
 
             expect(result).toNot(beNil())
             expect(result.fields?.title).toNot(beNil())
             expect(result.fields?.subTitle).toNot(beNil())
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testAllTypesCreate() throws {
+        do {
+            let client = app.firestoreService.firestore
+            let testObject = AllTypesModelTest(someStringValue: "demoString",
+                                               someBoolValue: true,
+                                               someIntValue: 42,
+                                               someDoubleValue: 3.14159265359,
+                                               someGeoPoint: Firestore.GeoPoint(latitude: 15, longitude: 10),
+                                               someTimestamp: Date(),
+                                               someReference: Firestore.ReferenceValue(projectId: app.firebaseConfig!.projectId, documentPath: "test/tester"),
+                                               someMapValue: AllTypesModelTest.NestedType(nestedString: "nestedStringDemo"),
+                                               someArray: ["lemon", "banana", "apple", "grapes"]
+            )
+            let result = try client.createDocument(path: "test", fields: testObject).wait()
+            expect(result).toNot(beNil())
+
+            print("Test object-id: \( (result.name as NSString).lastPathComponent)")
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testAllTypesRead() throws {
+        do {
+            var objectId = "<object-id>"
+            objectId = "0z3IKmbPuzd212wlhH6u" // uncomment this string a and set it to some real id from testDatabbase
+            let client = app.firestoreService.firestore
+
+            let result: Firestore.Document<AllTypesModelTest> = try client.getDocument(path: "test/\(objectId)").wait()
+
+            print(result.fields)
+            expect(result.fields).toNot(beNil())
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testWriteWithName() throws {
+        do {
+            let client = app.firestoreService.firestore
+            let testObject = TestFields(title: "A title", subTitle: "A subtitle")
+
+            let result = try client.createDocument(path: "test", name: "demoName", fields: testObject).wait()
+            expect(result).toNot(beNil())
+            expect(result.id).to(be("demoName"))
+
+            print("Test object-id: \( (result.name as NSString).lastPathComponent)")
         } catch {
             XCTFail(error.localizedDescription)
         }

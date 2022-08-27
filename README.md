@@ -1,3 +1,4 @@
+TEST
 # Vapor Firestore Provider
 
 Vapor-firestore is a lightweight provider which allows you to easily connect your Vapor project to a Firestore database and perform basic crud operations via the Firebase REST API.

@@ -13,3 +13,16 @@ struct TestFields: Codable {
     @Firestore.StringValue
     var subTitle: String
 }
+
+
+struct Hilton: Codable {
+    struct RecordDetail: Codable {
+        @Firestore.IntValue
+        var price: Int
+        @Firestore.IntValue
+        var timestamp: Int
+    }
+    
+    @Firestore.ArrayValue
+    var records:[Firestore.MapValue<RecordDetail>]
+}

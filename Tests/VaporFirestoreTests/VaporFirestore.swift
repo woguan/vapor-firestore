@@ -3,18 +3,21 @@ import Vapor
 import XCTest
 import Nimble
 
-
-
 final class VaporFirestoreTests: XCTestCase {
     var app: Application!
 
     override func setUp() {
         super.setUp()
         self.app = Application(.testing)
+        guard let thekey = Environment.get("FS_PK") else {
+            XCTFail("Private key not available")
+            return
+        }
+
         self.app.storage[FirestoreConfig.FirestoreConfigKey.self] = FirestoreConfig(
-            projectId: Environment.get("FS_PRJ_KEY")!,
-            email: Environment.get("FS_EMAIL_KEY")!,
-            privateKey: Environment.get("FS_PRIVKEY_KEY")!
+            projectId: "dwg-server",
+            email: "firebase-adminsdk-lwfhe@dwg-server.iam.gserviceaccount.com",
+            privateKey: thekey
         )
     }
 
@@ -120,11 +123,26 @@ final class VaporFirestoreTests: XCTestCase {
             let client = app.firestoreService.firestore
             let result: [Firestore.Document<TestFields>] = try client.listDocuments(path: "test").wait()
 
+            print(result.count)
             expect(result).toNot(beNil())
             expect(result[0].fields?.title).toNot(beNil())
             expect(result[0].fields?.subTitle).toNot(beNil())
         } catch {
-            XCTFail(error.localizedDescription)
+           XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testListDocsUnlimited() throws {
+        do {
+            let client = app.firestoreService.firestore
+            let result: [Firestore.Document<TestFields>] = try client.listDocumentsUnlimited(path: "test").wait()
+
+            print(result.count)
+            expect(result).toNot(beNil())
+            expect(result[0].fields?.title).toNot(beNil())
+            expect(result[0].fields?.subTitle).toNot(beNil())
+        } catch {
+           XCTFail(error.localizedDescription)
         }
     }
 
@@ -139,6 +157,18 @@ final class VaporFirestoreTests: XCTestCase {
             expect(result).toNot(beNil())
             expect(result.fields?.title).toNot(beNil())
             expect(result.fields?.subTitle).toNot(beNil())
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+
+    func testGetHiltonDoc() throws {
+        do {
+            let objectId = "hilton/canopy-brazil"
+            let client = app.firestoreService.firestore
+            let result: Firestore.Document<Hilton> = try client.getDocument(path: objectId).wait()
+            expect(result).toNot(beNil())
+            expect(result.fields?.records).toNot(beNil())
         } catch {
             XCTFail(error.localizedDescription)
         }
@@ -174,7 +204,6 @@ final class VaporFirestoreTests: XCTestCase {
 
             let result: Firestore.Document<AllTypesModelTest> = try client.getDocument(path: "test/\(objectId)").wait()
 
-            print(result.fields)
             expect(result.fields).toNot(beNil())
         } catch {
             XCTFail(error.localizedDescription)
@@ -186,7 +215,7 @@ final class VaporFirestoreTests: XCTestCase {
             let client = app.firestoreService.firestore
             let testObject = TestFields(title: "A title", subTitle: "A subtitle")
 
-            let result = try client.createDocument(path: "test", name: "demoName", fields: testObject).wait()
+            let result = try client.createDocument(path: "test2", name: "demoName", fields: testObject).wait()
             expect(result).toNot(beNil())
             expect(result.id).to(be("demoName"))
 

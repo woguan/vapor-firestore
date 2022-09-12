@@ -64,6 +64,7 @@ class FirestoreAPIClient: FirestoreClient {
             
             try req.content.encode(body, as: .urlEncodedForm)
             req.url = URI(string: "https://www.googleapis.com/oauth2/v4/token")
+            //req.url = URI(string: "https://www.googleapis.com/oauth2/v3/token")
             req.method = .POST
         } catch {
             return app.client.eventLoop.future(error: error)

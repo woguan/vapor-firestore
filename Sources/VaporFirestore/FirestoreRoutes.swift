@@ -29,6 +29,17 @@ public struct FirestoreResource {
             headers: [:])
         return sendReq.map { $0.documents }
     }
+    
+    // Page size will determine how many I can retrieve per request
+    public func listDocumentsUnlimited<T: Decodable>(path: String) -> EventLoopFuture<[Firestore.Document<T>]> {
+        let sendReq: EventLoopFuture<Firestore.List.Response<T>> = client.send(
+            method: .GET,
+            path: path,
+            query: "pageSize=1000000",
+            body: ByteBuffer(),
+            headers: [:])
+        return sendReq.map { $0.documents }
+    }
 
     public func createDocument<T: Codable>(path: String, name: String? = nil, fields: T) -> EventLoopFuture<Firestore.Document<T>> {
         var query = ""

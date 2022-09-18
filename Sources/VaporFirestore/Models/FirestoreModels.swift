@@ -116,8 +116,26 @@ public enum Firestore
         }
         
     }
-
     
+    public enum Operator: String {
+        case lessThan = "LESS_THAN"
+        case lessThanOrEqual = "LESS_THAN_OR_EQUAL"
+        case greaterThan = "GREATER_THAN"
+        case greaterThanOrEqual = "GREATER_THAN_OR_EQUAL"
+        case equal = "EQUAL"
+        case notEqual = "NOT_EQUAL"
+        // More... but not covered
+    }
+    
+    public struct ListDocument<T: Codable>: Codable {
+        public let document: Document<T>?
+        
+        public init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            document = try values.decodeIfPresent( Document<T>.self, forKey: .document)
+        }
+    }
+
     public struct Document<T: Codable>: Codable {
         public let name: String
         public let createTime: Date

@@ -14,6 +14,14 @@ struct TestFields: Codable {
     var subTitle: String
 }
 
+struct MessageFields: Codable {
+    @Firestore.IntValue
+    var id: Int
+    @Firestore.StringValue
+    var title: String
+    @Firestore.StringValue
+    var subTitle: String
+}
 
 struct Hilton: Codable {
     struct RecordDetail: Codable {

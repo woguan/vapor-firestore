@@ -224,4 +224,53 @@ final class VaporFirestoreTests: XCTestCase {
             XCTFail(error.localizedDescription)
         }
     }
+    
+    func testCreateDocWithMessageFields() throws {
+        do {
+            let client = app.firestoreService.firestore
+            for id in 0...100 {
+                let testObject = MessageFields(id: id, title: "The title", subTitle: "The id is \(id)")
+                let result = try client.createDocument(path: "message", fields: testObject).wait()
+                expect(result).toNot(beNil())
+            }
+            
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testGetAllMessageFields() throws {
+        do {
+            let client = app.firestoreService.firestore
+            let result: [Firestore.Document<MessageFields>] = try client.listDocumentsUnlimited(path: "message").wait()
+            print(result.count)
+            expect(result).toNot(beNil())
+            expect(result[0].fields?.title).toNot(beNil())
+            expect(result[0].fields?.id).toNot(beNil())
+        } catch {
+           XCTFail(error.localizedDescription)
+        }
+    }
+    
+    func testFilterMessageField() throws {
+        do {
+            let client = app.firestoreService.firestore
+            let result: [Firestore.ListDocument<MessageFields>] = try client.getFilteredDocuments(collectionId: "message", fieldName: "id", op: .greaterThan, value: 50).wait()
+            
+            if let firstId = result.first?.document?.fields?.id {
+                XCTAssertTrue(firstId > 50, "Unexpected")
+            } else {
+                XCTFail("Unexpected")
+            }
+            
+            if let lastId = result.last?.document?.fields?.id {
+                XCTAssertTrue(lastId > 50, "Unexpected")
+            } else {
+                XCTFail("Unexpected")
+            }
+            print(result)
+        } catch {
+           XCTFail(error.localizedDescription)
+        }
+    }
 }
